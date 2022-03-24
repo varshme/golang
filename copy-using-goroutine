@@ -1,0 +1,51 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"net/url"
+	"sync"
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+)
+
+func main() {
+	
+	newtrail1 := flag.String("S", "", "Name the source bucket")
+	newtrail2 := flag.String("D", "", "Name the destination bucket")
+  profile := flag.String("P", "defualt", "enter profile")
+	flag.Parse()
+	sess, err := session.NewSessionWithOptions(session.Options{
+		Profile:           *profile,
+		SharedConfigState: session.SharedConfigEnable,
+	})
+	if err != nil {
+		fmt.Print("error")
+
+	}
+	svc := s3.New(sess)
+	
+	
+	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(*newtrail1)})
+	var wg sync.WaitGroup
+	wg.Add(int(*resp.KeyCount))
+	for _, item := range resp.Contents {
+
+		go func() {
+
+			defer wg.Done()
+			ob1 := *source_buc + "/" + (*item.Key)
+
+			
+			_, err = svc.CopyObject(&s3.CopyObjectInput{Bucket: aws.String(*newtrail2),
+				CopySource: aws.String(url.PathEscape(ob1)), Key: aws.String(*item.Key)})
+
+		}()
+		time.Sleep(3 * time.Millisecond)
+	}
+	wg.Wait()
+
+}
